@@ -28,6 +28,8 @@ button.sm{width:auto;padding:10px 14px}button.g{background:var(--ok)}button.r{ba
 .m{color:var(--mut);font-size:14px;margin:2px 0}.acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.acts select{width:auto;flex:1;min-width:120px}
 .big{border-left:4px solid var(--pri)}.late{border-left:4px solid var(--dv)}
 details summary{cursor:pointer;color:var(--mut);margin:6px 0}.empty{text-align:center;color:var(--mut);padding:20px}
+.bar{background:var(--bd);border-radius:6px;height:10px;overflow:hidden;margin:3px 0}.bar i{display:block;height:10px;border-radius:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{:root:not([data-theme="light"]){color-scheme:light;--bg:#fff;--card:#fff;--tx:#000;--mut:#444;--bd:#ccc;--pri:#1d4ed8;--ok:#16a34a;--dv:#dc2626}body>*:not(#wk){display:none!important}#wk .acts,#wk .top button,#wk textarea{display:none!important}#wk{border:0}body{background:#fff}}
 </style></head><body>
 <h1>Controle da Doca</h1>
 <div class="kpis"><div class="k"><b id="kw">0</b><span>Aguardando</span></div><div class="k"><b id="kc">0</b><span>Conferindo</span></div><div class="k"><b id="ko">0</b><span>Liberados</span></div><div class="k"><b id="km">-</b><span>Tempo médio</span></div></div>
@@ -36,6 +38,7 @@ details summary{cursor:pointer;color:var(--mut);margin:6px 0}.empty{text-align:c
 <div class="row"><label for="gal" style="display:block;text-align:center;color:#fff;border-radius:10px;padding:13px;font-weight:600;cursor:pointer;background:var(--mut);padding:11px">🖼 Escolher foto</label><button class="o" id="live">🎥 Câmera ao vivo</button></div>
 <div id="vw" style="display:none;margin-bottom:8px"><video id="vd" autoplay playsinline muted style="width:100%;border-radius:10px;background:#000"></video><div class="acts"><button class="g sm" id="snap">Capturar e ler</button><button class="o sm" id="stop">Fechar</button></div></div>
 <div class="m" id="cs" style="margin-bottom:8px"></div>
+<details class="m"><summary>Texto lido da etiqueta (para ajuste)</summary><textarea id="ot" rows="6" readonly style="width:100%;font:12px monospace;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px"></textarea></details>
 <div class="row"><input id="num" placeholder="Nº do pedido" inputmode="numeric"><select id="sep"></select></div>
 <div class="row"><select id="loc"></select><input id="cli" placeholder="Cliente (opcional)"></div>
 <input id="bai" placeholder="Bairro" style="margin-bottom:8px">
@@ -48,21 +51,22 @@ details summary{cursor:pointer;color:var(--mut);margin:6px 0}.empty{text-align:c
 <div id="list"></div>
 <details class="card" open><summary>Conferentes (hoje)</summary><div id="perf"></div></details>
 <details class="card" open><summary>Erros por separador</summary><div id="errs"></div></details>
-<details class="card" open><summary>Relatório semanal de erros</summary>
+<details class="card" open id="wk"><summary>Relatório semanal de erros</summary>
 <div class="top" style="margin:6px 0"><button class="sm o" id="wp">◀</button><b id="wl"></b><button class="sm o" id="wn">▶</button></div>
 <div id="wr"></div>
-<div class="acts"><button class="sm" id="wcp">Copiar relatório</button><button class="sm o" id="wcsv">Exportar CSV</button></div>
+<div class="acts"><button class="sm" id="wcp">Copiar relatório</button><button class="sm o" id="wcsv">Exportar CSV</button><button class="sm o" id="wpr">Imprimir / PDF</button></div>
 <textarea id="wtx" rows="12" readonly style="width:100%;margin:8px 0;display:none;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:14px system-ui"></textarea></details>
 <details class="card"><summary>Histórico e bairros</summary><button class="sm" id="rsm">Resumo do dia</button> <a id="rwa" target="_blank" rel="noopener" style="display:none;margin-left:8px;color:var(--pri);font-weight:600">Abrir no WhatsApp</a>
 <textarea id="rtx" rows="10" readonly style="width:100%;margin:8px 0;display:none;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:14px system-ui"></textarea>
 <div class="m">Últimos 7 dias</div><div id="hist"></div><div class="m" style="margin-top:8px">Bairros hoje</div><div id="bairros"></div></details>
 <details class="card"><summary>Equipe e exportar</summary>
 <div class="m">Alerta de espera (minutos):</div><input id="lim" inputmode="numeric" style="margin-bottom:8px">
+<div class="m">Meta de erro semanal por separador (%):</div><input id="meta" inputmode="decimal" style="margin-bottom:8px">
 <div class="m">Nomes dos 4 conferentes:</div><div class="row" id="team"></div><div class="m">Nomes dos 14 separadores (ajuste antes de usar):</div><div class="row" id="sepn"></div>
 <div class="acts"><button class="sm o" id="exp">Exportar CSV</button><button class="sm r" id="clr">Limpar +30 dias</button><button class="sm r" id="clre">Zerar erros</button><button class="sm o" id="bkp">Backup</button><button class="sm o" id="rst">Restaurar</button><input type="file" id="rf" accept=".json" hidden></div></details>
 <script>
 const LOCS=["Oeste","Sul","Leste","Norte","Porto","Rodoviária","Rua 2 (especial)"];const NUM={"Oeste":2,"Sul":3,"Leste":4,"Norte":5,"Porto":6,"Rodoviária":7};const dl=n=>(NUM[n]?NUM[n]+" - ":"")+n;
-let S={o:[],err:[],lim:15,team:["Conferente 1","Conferente 2","Conferente 3","Conferente 4"],seps:Array.from({length:14},(_,i)=>"Separador "+(i+1))};
+let S={o:[],err:[],lim:15,meta:5,team:["Conferente 1","Conferente 2","Conferente 3","Conferente 4"],seps:Array.from({length:14},(_,i)=>"Separador "+(i+1))};
 try{const r=localStorage.getItem("doca-v1");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 let filt="Todas";
 const $=id=>document.getElementById(id);
@@ -98,13 +102,13 @@ const cls=(o.big?"big ":"")+(o.st=="w"&&wait>=S.lim?"late":"");
 let m=`<div class="m">${esc(o.sep)} · ${NUM[o.loc]?"Doca ":""}${esc(dl(o.loc))}${o.cli?" · "+esc(o.cli):""}${o.bai?" · "+esc(o.bai):""}</div>`;
 m+=`<div class="m">Chegou ${hm(o.t0)}${o.t1?" · Conferência "+hm(o.t1)+(o.conf?" ("+esc(o.conf)+")":""):""}${o.t2?" · Fim "+hm(o.t2):""}</div>`;
 m+=o.st=="w"?`<div class="m"><b>Esperando ${wait} min</b>${o.big?" · grande: separador já liberado":""}</div>`:o.st=="c"?`<div class="m"><b>Conferindo há ${mins(o.t1)} min</b></div>`:`<div class="m">Total ${mins(o.t0,o.t2)} min${o.note?" · "+esc(o.note):""}</div>`;
-let a="";if(o.t2&&(o.vol||o.pal))m+=`<div class="m">${o.vol?esc(o.vol)+" volumes":""}${o.vol&&o.pal?" · ":""}${o.pal?esc(o.pal)+" paletes":""}${o.tp?" · "+esc(o.tp):""}</div>`;const fl=`<input id="vl${o.id}" inputmode="numeric" placeholder="Volumes" value="${esc(o.vol||"")}" style="flex:1;min-width:90px"><input id="pl${o.id}" inputmode="numeric" placeholder="Paletes" value="${esc(o.pal||"")}" style="flex:1;min-width:90px"><select id="tp${o.id}"><option>Etiqueta</option><option${o.tp=="Placa"?" selected":""}>Placa</option></select></div><div class="acts">`;const dv=`<select id="dv${o.id}"><option>Falta</option><option>Sobra</option><option>Item trocado</option><option>Avaria</option></select><button class="r sm" data-a="div" data-id="${o.id}">Erro do separador</button>`;
+let a="";if(o.obs&&(o.st=="ok"||o.st=="div"))m+=`<div class="m">📝 ${esc(o.obs)}</div>`;if(o.t2&&(o.vol||o.pal))m+=`<div class="m">${o.vol?esc(o.vol)+" volumes":""}${o.vol&&o.pal?" · ":""}${o.pal?esc(o.pal)+" paletes":""}${o.tp?" · "+esc(o.tp):""}</div>`;const fl=`<input id="vl${o.id}" inputmode="numeric" placeholder="Volumes" value="${esc(o.vol||"")}" style="flex:1;min-width:90px"><input id="pl${o.id}" inputmode="numeric" placeholder="Paletes" value="${esc(o.pal||"")}" style="flex:1;min-width:90px"><select id="tp${o.id}"><option>Etiqueta</option><option${o.tp=="Placa"?" selected":""}>Placa</option></select><input id="ob${o.id}" placeholder="Observação (opcional)" value="${esc(o.obs||"")}" style="flex-basis:100%"></div><div class="acts">`;const dv=`<select id="dv${o.id}"><option>Falta</option><option>Sobra</option><option>Item trocado</option><option>Avaria</option></select><button class="r sm" data-a="div" data-id="${o.id}">Erro do separador</button>`;
 if(o.st=="w")a=`${fl}<select id="cf${o.id}">${S.team.map(t=>`<option>${esc(t)}</option>`).join("")}</select><button class="sm" data-a="start" data-id="${o.id}">Iniciar</button><button class="sm g" data-a="ok" data-id="${o.id}">Concluir</button></div><div class="acts">${dv}`;
 if(o.st=="c")a=`${fl}<button class="g sm" data-a="ok" data-id="${o.id}">Liberar</button><button class="o sm" data-a="back" data-id="${o.id}">Voltar</button></div><div class="acts">${dv}`;
 if(o.st=="ok")a=`<button class="o sm" data-a="reopen" data-id="${o.id}">Reabrir</button></div><div class="acts">${dv}`;
 if(o.st=="div")a=`<button class="o sm" data-a="undo" data-id="${o.id}">Desfazer erro</button>`;
-return `<div class="card ${cls}"><div class="top"><span class="num">#${esc(o.num)}${o.big?" 📦":""}</span><span class="tag" style="background:${col}">${nm}</span></div>${m}<div class="acts">${a}</div></div>`}
-function act(id,a){const o=S.o.find(x=>x.id==id);if(!o)return;const g=k=>(($(k+id)||{}).value||"").trim();
+return `<div class="card ${cls}"><div class="top"><span class="num">#${esc(o.num)}${o.big?" 📦":""}</span><span class="tag" style="background:${col}">${nm}</span></div>${m}<div class="acts">${a}</div><div class="acts"><button class="sm ${delArm==o.id?"r":"o"}" data-a="del" data-id="${o.id}">${delArm==o.id?"Toque de novo para excluir":"Excluir pedido"}</button></div></div>`}
+function act(id,a){const o=S.o.find(x=>x.id==id);if(!o)return;const g=k=>(($(k+id)||{}).value||"").trim();if(a!="del")delArm=null;if(a=="del"){if(delArm==id){S.o=S.o.filter(x=>x.id!=id);S.err=S.err.filter(e=>e.oid!=id);delArm=null;save()}else delArm=id;render();return}
 if(a=="start"){o.st="c";o.t1=Date.now();o.conf=($("cf"+id)||{}).value||""}
 else if(a=="ok"){o.st="ok";o.t2=Date.now();o.vol=g("vl")||o.vol||"";o.pal=g("pl")||o.pal||"";o.tp=g("tp")||o.tp||""}
 else if(a=="div"){o.vol=g("vl")||o.vol||"";o.pal=g("pl")||o.pal||"";o.tp=g("tp")||o.tp||"";o.note=($("dv"+id)||{}).value||"";o.st="div";o.t2=o.t2||Date.now();S.err.push({oid:o.id,sep:o.sep,tp:o.note,t:Date.now()})}
@@ -116,8 +120,8 @@ $("add").onclick=()=>{const n=$("num").value.trim();if(!n){$("num").focus();retu
 S.o.push({id:Date.now(),num:n,sep:$("sep").value,loc:$("loc").value,cli:$("cli").value.trim(),bai:$("bai").value.trim(),big:$("big").checked,t0:Date.now(),st:"w"});
 $("num").value="";$("cli").value="";$("bai").value="";$("big").checked=false;save();render()};
 $("clr").onclick=()=>{S.o=S.o.filter(o=>Date.now()-o.t0<30*864e5);save();render()};
-$("exp").onclick=async()=>{const h="Pedido;Separador;Local;Cliente;Bairro;Volumes;Paletes;Tipo;Grande;Chegada;Inicio;Fim;Conferente;Status;Espera(min);Total(min);Divergencia";
-const rows=S.o.map(o=>[o.num,o.sep,dl(o.loc),o.cli,o.bai||"",o.vol||"",o.pal||"",o.tp||"",o.big?"sim":"nao",hm(o.t0),hm(o.t1),hm(o.t2),o.conf||"",o.st,o.t1?mins(o.t0,o.t1):"",o.t2?mins(o.t0,o.t2):"",o.note||""].join(";"));
+$("exp").onclick=async()=>{const h="Pedido;Separador;Local;Cliente;Bairro;Volumes;Paletes;Tipo;Grande;Chegada;Inicio;Fim;Conferente;Status;Espera(min);Total(min);Divergencia;Observacao";
+const rows=S.o.map(o=>[o.num,o.sep,dl(o.loc),o.cli,o.bai||"",o.vol||"",o.pal||"",o.tp||"",o.big?"sim":"nao",hm(o.t0),hm(o.t1),hm(o.t2),o.conf||"",o.st,o.t1?mins(o.t0,o.t1):"",o.t2?mins(o.t0,o.t2):"",o.note||"",(o.obs||"").replace(/;/g,",")].join(";"));
 dlFile("controle-doca.csv","\ufeff"+[h,...rows].join("\n"))};
 function errs(){const by={};S.err.forEach(e=>{const r=by[e.sep]||(by[e.sep]={n:0,h:0,t:{}});r.n++;if(today(e.t))r.h++;r.t[e.tp]=(r.t[e.tp]||0)+1});
 const k=Object.keys(by).sort((a,b)=>by[b].n-by[a].n);
@@ -126,7 +130,7 @@ function perf(){const m={};S.o.filter(o=>today(o.t0)&&o.conf&&o.t2).forEach(o=>{
 S.o.filter(o=>today(o.t0)&&o.st=="c"&&o.conf).forEach(o=>{const r=m[o.conf]||(m[o.conf]={n:0,s:0});r.e=(r.e||0)+1});
 const k=Object.keys(m).sort((a,b)=>m[b].n-m[a].n);
 $("perf").innerHTML=k.length?k.map(c=>`<div class="top"><span>${esc(c)}</span><b>${m[c].n} conferidos${m[c].n?" · média "+Math.round(m[c].s/m[c].n)+" min":""}${m[c].e?" · "+m[c].e+" em andamento":""}</b></div>`).join(""):'<div class="m">Nenhuma conferência hoje.</div>'}
-$("lim").value=S.lim;$("lim").oninput=()=>{S.lim=Math.max(1,parseInt($("lim").value)||15);save();render()};$("q").oninput=render;$("ft").onchange=render;
+$("meta").value=S.meta;$("meta").oninput=()=>{const v=parseFloat($("meta").value.replace(",","."));S.meta=isNaN(v)?5:Math.max(0,v);save();wrep()};$("lim").value=S.lim;$("lim").oninput=()=>{S.lim=Math.max(1,parseInt($("lim").value)||15);save();render()};$("q").oninput=render;$("ft").onchange=render;
 function hist(){const d={};S.o.forEach(o=>{const k=new Date(o.t0).toDateString();const r=d[k]||(d[k]={t:o.t0,n:0,s:0,c:0,e:0});r.n++;if(o.t2){r.c++;r.s+=mins(o.t0,o.t2)}if(o.st=="div")r.e++});
 const k=Object.values(d).sort((a,b)=>b.t-a.t).slice(0,7);
 $("hist").innerHTML=k.map(r=>`<div class="top"><span>${new Date(r.t).toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"})}</span><b>${r.n} pedidos · ${r.c?Math.round(r.s/r.c)+" min médio":"-"} · ${r.e} erros</b></div>`).join("")||'<div class="m">Sem histórico ainda.</div>';
@@ -138,34 +142,46 @@ $("rf").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileRead
 let wk=0;
 function wdata(){const d=new Date();d.setHours(0,0,0,0);const dow=(d.getDay()+6)%7;d.setDate(d.getDate()-dow+wk*7);const a=d.getTime(),b=a+7*864e5;
 const os=S.o.filter(o=>o.t0>=a&&o.t0<b);
-const er=S.err.filter(e=>e.t>=a&&e.t<b).map(e=>{const o=S.o.find(x=>x.id==e.oid)||{};return Object.assign({},e,{num:o.num||"-",loc:o.loc||"",bai:o.bai||"",cli:o.cli||""})}).sort((x,y)=>x.t-y.t);
+const er=S.err.filter(e=>e.t>=a&&e.t<b).map(e=>{const o=S.o.find(x=>x.id==e.oid)||{};return Object.assign({},e,{num:o.num||"-",loc:o.loc||"",bai:o.bai||"",cli:o.cli||"",obs:o.obs||""})}).sort((x,y)=>x.t-y.t);
 const by={};os.forEach(o=>{(by[o.sep]=by[o.sep]||{p:0,e:0,t:{}}).p++});
 er.forEach(e=>{const r=by[e.sep]=by[e.sep]||{p:0,e:0,t:{}};r.e++;r.t[e.tp]=(r.t[e.tp]||0)+1});
 const rows=Object.entries(by).filter(([k,r])=>r.e>0).sort((x,y)=>y[1].e-x[1].e||y[1].p-x[1].p);
-return{a,b,os,er,rows}}
+const cf={};os.filter(o=>o.conf&&o.t1&&o.t2).forEach(o=>{const r=cf[o.conf]=cf[o.conf]||{n:0,s:0,m:0};const mm=mins(o.t1,o.t2);r.n++;r.s+=mm;r.m=Math.max(r.m,mm)});
+const crow=Object.entries(cf).sort((x,y)=>y[1].n-x[1].n);
+return{a,b,os,er,rows,crow}}
 const fd=t=>new Date(t).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});
 const pct=(e,p)=>p?Math.round(e*1000/p)/10+"%":"-";
+const over=(e,p)=>p>0&&e*100/p>S.meta;
+const tps=r=>Object.entries(r.t).map(([k,v])=>k+" "+v).join(" · ");
+const bar=(v,max,col)=>`<div class="bar"><i style="width:${max?Math.round(v*100/max):0}%;background:${col}"></i></div>`;
 function wrep(){const w=wdata();$("wl").textContent=fd(w.a)+" a "+fd(w.b-864e5);
-$("wr").innerHTML=`<div class="m"><b>${w.er.length} erros</b> em ${w.os.length} pedidos (${pct(w.er.length,w.os.length)})</div>`+(w.rows.map(([s,r])=>`<div class="top"><span>${esc(s)}</span><b>${r.e} erro(s) · ${pct(r.e,r.p)}</b></div><div class="m">${r.p} pedidos · ${Object.entries(r.t).map(([k,v])=>esc(k)+" "+v).join(" · ")}</div>`).join("")||'<div class="m">Nenhum erro nessa semana.</div>')}
-function wtext(){const w=wdata();const L=["*Relatório semanal de erros dos separadores*","Semana: "+fd(w.a)+" a "+fd(w.b-864e5),"","Total: "+w.er.length+" erros em "+w.os.length+" pedidos ("+pct(w.er.length,w.os.length)+")","","*Por separador*"];
-w.rows.forEach(([s,r],i)=>L.push((i+1)+". "+s+": "+r.e+" erro(s) de "+r.p+" pedidos ("+pct(r.e,r.p)+") - "+Object.entries(r.t).map(([k,v])=>k+" "+v).join(", ")));
+const mx=Math.max(1,...w.rows.map(([s,r])=>r.e));
+let h=`<div class="m"><b>${w.er.length} erros</b> em ${w.os.length} pedidos (${pct(w.er.length,w.os.length)}) · meta ${S.meta}%</div>`;
+h+=w.rows.map(([s,r])=>{const o=over(r.e,r.p);return `<div class="top"><span>${esc(s)}${o?" ⚠":""}</span><b style="${o?"color:var(--dv)":""}">${r.e} erro(s) · ${pct(r.e,r.p)}</b></div>${bar(r.e,mx,o?"var(--dv)":"var(--pri)")}<div class="m">${r.p} pedidos · ${esc(tps(r))}${o?" · acima da meta":""}</div>`}).join("")||'<div class="m">Nenhum erro nessa semana.</div>';
+if(w.crow.length){const mc=Math.max(...w.crow.map(([c,r])=>r.n));h+=`<div class="m" style="margin-top:10px"><b>Conferentes</b></div>`+w.crow.map(([c,r])=>`<div class="top"><span>${esc(c)}</span><b>${r.n} pedidos · média ${Math.round(r.s/r.n)} min</b></div>${bar(r.n,mc,"var(--ok)")}<div class="m">maior tempo ${r.m} min</div>`).join("")}
+$("wr").innerHTML=h}
+function wtext(){const w=wdata();const L=["*Relatório semanal de erros dos separadores*","Semana: "+fd(w.a)+" a "+fd(w.b-864e5),"","Total: "+w.er.length+" erros em "+w.os.length+" pedidos ("+pct(w.er.length,w.os.length)+") | Meta: "+S.meta+"%","","*Por separador*"];
+w.rows.forEach(([s,r],i)=>L.push((i+1)+". "+s+": "+r.e+" erro(s) de "+r.p+" pedidos ("+pct(r.e,r.p)+")"+(over(r.e,r.p)?" - ACIMA DA META":"")+" - "+tps(r)));
 if(!w.rows.length)L.push("Nenhum erro registrado");
-if(w.er.length){L.push("","*Detalhe*");w.er.forEach(e=>L.push(fd(e.t)+" | Pedido "+e.num+" | "+e.sep+" | "+e.tp+(e.loc?" | "+dl(e.loc):"")+(e.bai?" | "+e.bai:"")))}
+if(w.crow.length){L.push("","*Conferentes*");w.crow.forEach(([c,r])=>L.push(c+": "+r.n+" pedidos, média "+Math.round(r.s/r.n)+" min, maior "+r.m+" min"))}
+if(w.er.length){L.push("","*Detalhe dos erros*");w.er.forEach(e=>L.push(fd(e.t)+" | Pedido "+e.num+" | "+e.sep+" | "+e.tp+(e.loc?" | "+dl(e.loc):"")+(e.bai?" | "+e.bai:"")+(e.obs?" | Obs: "+e.obs:"")))}
 return L.join("\n")}
-$("wp").onclick=()=>{wk--;wrep()};$("wn").onclick=()=>{if(wk<0)wk++;wrep()};
+$("wp").onclick=()=>{wk--;wrep()};$("wpr").onclick=()=>window.print();$("wn").onclick=()=>{if(wk<0)wk++;wrep()};
 $("wcp").onclick=async()=>{const t=wtext();$("wtx").value=t;$("wtx").style.display="block";try{await navigator.clipboard.writeText(t);$("wcp").textContent="Copiado!"}catch(e){$("wtx").select()}};
-$("wcsv").onclick=async()=>{const w=wdata();const rows=w.er.map(e=>[fd(e.t),e.num,e.sep,e.tp,dl(e.loc),e.bai,e.cli].join(";"));dlFile("erros-semana.csv","\ufeff"+["Data;Pedido;Separador;Tipo;Doca;Bairro;Cliente",...rows].join("\n"))};
-const dr={};["input","change"].forEach(ev=>$("list").addEventListener(ev,e=>{if(e.target.id)dr[e.target.id]=e.target.value}));
+$("wcsv").onclick=async()=>{const w=wdata();const rows=w.er.map(e=>[fd(e.t),e.num,e.sep,e.tp,dl(e.loc),e.bai,e.cli,(e.obs||"").replace(/;/g,",")].join(";"));dlFile("erros-semana.csv","\ufeff"+["Data;Pedido;Separador;Tipo;Doca;Bairro;Cliente;Observacao",...rows].join("\n"))};
+const dr={};["input","change"].forEach(ev=>$("list").addEventListener(ev,e=>{const t=e.target;if(!t.id)return;dr[t.id]=t.value;if(t.id.startsWith("ob")){const o=S.o.find(x=>x.id==t.id.slice(2));if(o){o.obs=t.value.trim();save()}}}));
 function pickSep(t){const code=(t.match(/\d+/)||[""])[0];const nm=t.replace(/^\d+\s*-?\s*/,"").toLowerCase();const lt=t.toLowerCase();
 let i=S.seps.findIndex(x=>{const y=x.toLowerCase();return y===lt||(nm.length>3&&y.includes(nm))||(code&&(y.startsWith(code+" ")||y.startsWith(code+"-")))});
 if(i<0){i=S.seps.findIndex(x=>/^Separador \d+$/.test(x)&&!S.o.some(o=>o.sep==x)&&!S.err.some(e=>e.sep==x));if(i<0){S.seps.push(t);i=S.seps.length-1}else S.seps[i]=t;save();$("sep").innerHTML=S.seps.map(s=>`<option>${esc(s)}</option>`).join("");teamUI()}
 return i}
 let lastDup="";
 const dupOf=n=>S.o.find(o=>o.num==n&&today(o.t0));
-let ocrW=null;
+let ocrW=null,ocrD=null,delArm=null;
 function dlFile(name,data){const bl=new Blob([data],{type:"text/plain;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
-function parseEt(t){const T=t.replace(/\|/g,"I");const g=(re)=>{const m=T.match(re);return m?m[1].replace(/[^A-Za-z0-9ÀÁÂÃÇÉÊÍÓÔÕÚàáâãçéêíóôõú .\-\/&]/g,"").trim():""};
-const pl=(T.match(/N\W{0,2}\s*Ped\w*\W{0,3}\s*(\d{6,12})/i)||[])[1]||"";const cand=(T.match(/\d{8,10}/g)||[])[0]||"";
+function parseEt(t){const T=t.replace(/\|/g,"I");const g=re=>{const m=T.match(re);return m?m[1].replace(/[^A-Za-z0-9ÀÁÂÃÇÉÊÍÓÔÕÚàáâãçéêíóôõú .\-\/&]/g,"").trim():""};
+const fix=x=>x.replace(/[Oo]/g,"0").replace(/[Il]/g,"1").replace(/S/g,"5").replace(/B/g,"8");
+let pl=((T.match(/N\W{0,2}\s*Ped\w*\W{0,3}\s*([0-9OoIlSB]{6,12})/i)||[])[1]||"");pl=fix(pl);if(!/^\d{6,12}$/.test(pl))pl="";
+const cand=(T.match(/\d+/g)||[]).filter(x=>x.length>=8&&x.length<=10)[0]||"";
 return{pl,cand,cliente:g(/CLIENTE\W{0,3}[ \t]*([^\n]+)/i),bairro:g(/BAIRRO\W{0,3}[ \t]*([^\n]+)/i),separador:g(/ador\W{0,3}[ \t]*(\d{2,6}[ \t]*-[ \t]*[^\n]+)/i)}}
 async function lerEtiqueta(f){const cs=$("cs");
 try{$("cb").textContent="Lendo etiqueta...";cs.textContent="Preparando a leitura (na primeira vez demora um pouco)...";
@@ -173,9 +189,13 @@ if(!window.Tesseract)throw new Error("lib");
 const bm=await createImageBitmap(f);const k=Math.min(1,1800/Math.max(bm.width,bm.height));
 const mk=inv=>{const cv=document.createElement("canvas");cv.width=Math.round(bm.width*k);cv.height=Math.round(bm.height*k);const cx=cv.getContext("2d");cx.drawImage(bm,0,0,cv.width,cv.height);const im=cx.getImageData(0,0,cv.width,cv.height),p=im.data;for(let i=0;i<p.length;i+=4){let g=p[i]*0.3+p[i+1]*0.59+p[i+2]*0.11;g=Math.max(0,Math.min(255,(g-110)*1.8+110));if(inv)g=255-g;p[i]=p[i+1]=p[i+2]=g}cx.putImageData(im,0,0);return cv};
 if(!ocrW)ocrW=await Tesseract.createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text")cs.textContent="Lendo etiqueta... "+Math.round(m.progress*100)+"%"}});
-const t1=(await ocrW.recognize(mk(false))).data.text;const t2=(await ocrW.recognize(mk(true))).data.text;
-const A=parseEt(t1),B=parseEt(t2);
-const d={pedido:A.pl||B.pl||B.cand||A.cand||"",cliente:A.cliente||B.cliente||"",bairro:A.bairro||B.bairro||"",separador:A.separador||B.separador||""};
+if(!ocrD){ocrD=await Tesseract.createWorker("eng",1,{});await ocrD.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:"11"})}
+const t1=(await ocrW.recognize(mk(false))).data.text;
+const t2=(await ocrW.recognize(mk(true))).data.text;
+const t3=(await ocrD.recognize(mk(true))).data.text;
+$("ot").value=t1+"\n--- invertida ---\n"+t2+"\n--- números ---\n"+t3;
+const A=parseEt(t1),B=parseEt(t2),C=parseEt(t3);
+const d={pedido:A.pl||B.pl||C.cand||B.cand||A.cand||"",cliente:A.cliente||B.cliente||"",bairro:A.bairro||B.bairro||"",separador:A.separador||B.separador||""};
 const p=String(d.pedido||"").replace(/\D/g,"");
 if(!p){cs.textContent="Não consegui ler o número. Chegue mais perto e tente de novo.";return}
 $("num").value=p;if(d.cliente)$("cli").value=d.cliente;if(d.bairro)$("bai").value=d.bairro;let sp="";if(d.separador&&String(d.separador).trim().length>3){const i=pickSep(String(d.separador).trim());$("sep").selectedIndex=i;sp=S.seps[i]}
