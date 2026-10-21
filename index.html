@@ -176,28 +176,64 @@ if(i<0){i=S.seps.findIndex(x=>/^Separador \d+$/.test(x)&&!S.o.some(o=>o.sep==x)&
 return i}
 let lastDup="";
 const dupOf=n=>S.o.find(o=>o.num==n&&today(o.t0));
-let ocrW=null,ocrD=null,delArm=null;
+let ocrW=null,ocrD=null,ocrL=null,delArm=null;
 function dlFile(name,data){const bl=new Blob([data],{type:"text/plain;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
 function parseEt(t){const T=t.replace(/\|/g,"I");const g=re=>{const m=T.match(re);return m?m[1].replace(/[^A-Za-z0-9ÀÁÂÃÇÉÊÍÓÔÕÚàáâãçéêíóôõú .\-\/&]/g,"").trim():""};
 const fix=x=>x.replace(/[Oo]/g,"0").replace(/[Il]/g,"1").replace(/S/g,"5").replace(/B/g,"8");
 let pl=((T.match(/N\W{0,2}\s*Ped\w*\W{0,3}\s*([0-9OoIlSB]{6,12})/i)||[])[1]||"");pl=fix(pl);if(!/^\d{6,12}$/.test(pl))pl="";
 const cand=(T.match(/\d+/g)||[]).filter(x=>x.length>=8&&x.length<=10)[0]||"";
 return{pl,cand,cliente:g(/CLIENTE\W{0,3}[ \t]*([^\n]+)/i),bairro:g(/BAIRRO\W{0,3}[ \t]*([^\n]+)/i),separador:g(/ador\W{0,3}[ \t]*(\d{2,6}[ \t]*-[ \t]*[^\n]+)/i)}}
+function acharCaixas(g,W,H){const ii=new Float64Array((W+1)*(H+1));for(let y=0;y<H;y++){let r=0;for(let x=0;x<W;x++){r+=g[y*W+x];ii[(y+1)*(W+1)+x+1]=ii[y*(W+1)+x+1]+r}}
+const R=40,m=new Uint8Array(W*H);
+for(let y=0;y<H;y++){const y0=Math.max(0,y-R),y1=Math.min(H,y+R+1);for(let x=0;x<W;x++){const x0=Math.max(0,x-R),x1=Math.min(W,x+R+1);const sum=ii[y1*(W+1)+x1]-ii[y0*(W+1)+x1]-ii[y1*(W+1)+x0]+ii[y0*(W+1)+x0];if(g[y*W+x]<sum/((x1-x0)*(y1-y0))-35)m[y*W+x]=1}}
+const seen=new Uint8Array(W*H),st=new Int32Array(W*H),out=[];
+for(let i=0;i<W*H;i++){if(!m[i]||seen[i])continue;let sp=0;st[sp++]=i;seen[i]=1;let x0=W,y0=H,x1=0,y1=0,a=0;
+while(sp){const p=st[--sp];const x=p%W,y=(p-x)/W;a++;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+if(x>0&&m[p-1]&&!seen[p-1]){seen[p-1]=1;st[sp++]=p-1}
+if(x<W-1&&m[p+1]&&!seen[p+1]){seen[p+1]=1;st[sp++]=p+1}
+if(y>0&&m[p-W]&&!seen[p-W]){seen[p-W]=1;st[sp++]=p-W}
+if(y<H-1&&m[p+W]&&!seen[p+W]){seen[p+W]=1;st[sp++]=p+W}}
+const w=x1-x0+1,h=y1-y0+1;if(w>=0.12*W&&h>=0.02*H&&w/h>=2.2&&w/h<=14&&a/(w*h)>0.35)out.push({x:x0,y:y0,w,h,a})}
+return out.sort((p,q)=>q.a-p.a).slice(0,6)}
+async function lerCaixa(bm){const s=800/Math.max(bm.width,bm.height);const W=Math.max(1,Math.round(bm.width*s)),H=Math.max(1,Math.round(bm.height*s));
+const cv=document.createElement("canvas");cv.width=W;cv.height=H;const cx=cv.getContext("2d",{willReadFrequently:true});cx.drawImage(bm,0,0,W,H);
+const px=cx.getImageData(0,0,W,H).data;const g=new Float32Array(W*H);for(let i=0;i<W*H;i++)g[i]=px[i*4]*0.3+px[i*4+1]*0.59+px[i*4+2]*0.11;
+const cands=acharCaixas(g,W,H);if(!cands.length)return "";
+if(!ocrL){ocrL=await Tesseract.createWorker("eng",1,{});await ocrL.setParameters({tessedit_pageseg_mode:"7"})}
+for(const c of cands){const pad=6/s,sx=Math.max(0,c.x/s-pad),sy=Math.max(0,c.y/s-pad),sw=Math.min(bm.width-sx,c.w/s+2*pad),sh=Math.min(bm.height-sy,c.h/s+2*pad);
+const k=120/sh,dw=Math.max(1,Math.round(sw*k));
+const oc=document.createElement("canvas");oc.width=dw+40;oc.height=160;const ox=oc.getContext("2d",{willReadFrequently:true});ox.fillStyle="#fff";ox.fillRect(0,0,oc.width,oc.height);ox.drawImage(bm,sx,sy,sw,sh,20,20,dw,120);
+const im=ox.getImageData(20,20,dw,120),q=im.data;for(let i=0;i<q.length;i+=4){let v=q[i]*0.3+q[i+1]*0.59+q[i+2]*0.11;v=255-Math.max(0,Math.min(255,(v-110)*1.8+110));q[i]=q[i+1]=q[i+2]=v}ox.putImageData(im,20,20);
+const t=(await ocrL.recognize(oc)).data.text.trim();const letras=(t.match(/[A-Za-z]/g)||[]).length;const dg=t.replace(/\D/g,"");
+if(dg.length>=8&&dg.length<=11&&letras<=1)return dg}
+return ""}
 async function lerEtiqueta(f){const cs=$("cs");
 try{$("cb").textContent="Lendo etiqueta...";cs.textContent="Preparando a leitura (na primeira vez demora um pouco)...";
 if(!window.Tesseract)throw new Error("lib");
 const bm=await createImageBitmap(f);const k=Math.min(1,1800/Math.max(bm.width,bm.height));
 const mk=inv=>{const cv=document.createElement("canvas");cv.width=Math.round(bm.width*k);cv.height=Math.round(bm.height*k);const cx=cv.getContext("2d");cx.drawImage(bm,0,0,cv.width,cv.height);const im=cx.getImageData(0,0,cv.width,cv.height),p=im.data;for(let i=0;i<p.length;i+=4){let g=p[i]*0.3+p[i+1]*0.59+p[i+2]*0.11;g=Math.max(0,Math.min(255,(g-110)*1.8+110));if(inv)g=255-g;p[i]=p[i+1]=p[i+2]=g}cx.putImageData(im,0,0);return cv};
 if(!ocrW)ocrW=await Tesseract.createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text")cs.textContent="Lendo etiqueta... "+Math.round(m.progress*100)+"%"}});
-if(!ocrD){ocrD=await Tesseract.createWorker("eng",1,{});await ocrD.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:"11"})}
 const t1=(await ocrW.recognize(mk(false))).data.text;
-const t2=(await ocrW.recognize(mk(true))).data.text;
-const t3=(await ocrD.recognize(mk(true))).data.text;
-$("ot").value=t1+"\n--- invertida ---\n"+t2+"\n--- números ---\n"+t3;
-const A=parseEt(t1),B=parseEt(t2),C=parseEt(t3);
-const d={pedido:A.pl||B.pl||C.cand||B.cand||A.cand||"",cliente:A.cliente||B.cliente||"",bairro:A.bairro||B.bairro||"",separador:A.separador||B.separador||""};
+const A=parseEt(t1);
+let ped="",B={cliente:"",bairro:"",separador:""},t2="",t3="",duvida="";
+try{ped=await lerCaixa(bm)}catch(e){}
+if(!ped){
+if(!ocrD){ocrD=await Tesseract.createWorker("eng",1,{});await ocrD.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:"11"})}
+t2=(await ocrW.recognize(mk(true))).data.text;
+t3=(await ocrD.recognize(mk(true))).data.text;
+B=parseEt(t2);
+const os=(t1+" "+t2).match(/O\W?S\W{0,3}(\d{5,9})/i),osn=os?os[1]:"";
+const ok=x=>x&&(!osn||!x.includes(osn));
+const R=[t1,t2,t3].map(t=>[...new Set((t.replace(/\|/g,"I").match(/\d+/g)||[]).filter(x=>x.length>=8&&x.length<=10&&!x.startsWith("000")&&ok(x)))]);
+const cnt={};R.forEach(r=>r.forEach(x=>cnt[x]=(cnt[x]||0)+1));
+const conf=Object.keys(cnt).filter(x=>cnt[x]>=2).sort((x,y)=>cnt[y]-cnt[x])[0]||"";
+ped=[A.pl,B.pl,conf].find(ok)||"";
+duvida=ped?"":(R[2][0]||R[1][0]||R[0][0]||"");
+}
+$("ot").value=t1+(t2?"\n--- invertida ---\n"+t2+"\n--- números ---\n"+t3:"\n--- número lido na caixa preta: "+ped+" ---");
+const d={pedido:ped,cliente:A.cliente||B.cliente||"",bairro:A.bairro||B.bairro||"",separador:A.separador||B.separador||""};
 const p=String(d.pedido||"").replace(/\D/g,"");
-if(!p){cs.textContent="Não consegui ler o número. Chegue mais perto e tente de novo.";return}
+if(!p){cs.textContent="Não tive certeza do número"+(duvida?" (li "+duvida+", confira com a etiqueta)":"")+". Chegue mais perto, com boa luz, e tente de novo ou digite.";return}
 $("num").value=p;if(d.cliente)$("cli").value=d.cliente;if(d.bairro)$("bai").value=d.bairro;let sp="";if(d.separador&&String(d.separador).trim().length>3){const i=pickSep(String(d.separador).trim());$("sep").selectedIndex=i;sp=S.seps[i]}
 cs.textContent=dupOf(p)?"⚠ Pedido "+p+" já registrado hoje.":"Pedido "+p+" lido"+(sp?" · "+sp:"")+". Confira e registre.";
 }catch(err){cs.textContent="Não deu para ler agora. Digite o número."}finally{$("cb").textContent="📷 Ler etiqueta (câmera)"}}
